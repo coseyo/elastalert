@@ -638,6 +638,7 @@ class ElastAlerter():
 
         self.current_es = elasticsearch_client(rule)
         self.current_es_addr = (rule['es_host'], rule['es_port'])
+        rule['type'].set_elasticsearch_client(self.current_es)
 
         # If there are pending aggregate matches, try processing them
         for x in range(len(rule['agg_matches'])):
