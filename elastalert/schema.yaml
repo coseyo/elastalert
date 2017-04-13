@@ -119,6 +119,17 @@ oneOf:
       metric_agg_type: {enum: ["min", "max", "avg", "sum", "cardinality", "value_count"]}
       #timeframe: *timeframe
 
+  - title: Metric History Aggregation
+    required: [metric_agg_key, metric_agg_type, date_diff_ref, spike_height, spike_type]
+    properties:
+      type: {enum: [metric_history_aggregation]}
+      metric_agg_type: {enum: ["min", "max", "avg", "sum", "cardinality", "value_count"]}
+      spike_height: {type: number}
+      spike_type: {enum: ["up", "down", "both"]}
+      date_diff_ref: {type: integer}
+      threshold_ref: {type: integer}
+      threshold_cur: {type: integer}
+
   - title: Percentage Match
     required: [match_bucket_filter]
     properties:

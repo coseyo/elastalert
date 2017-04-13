@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import copy
-import datetime
 
+import datetime
 from blist import sortedlist
+
+from pytz import timezone
+from util import EAException
 from util import add_raw_postfix
 from util import dt_to_ts
-from util import EAException
 from util import elastalert_logger
 from util import elasticsearch_client
 from util import format_index
@@ -29,6 +31,7 @@ class RuleType(object):
     def __init__(self, rules, args=None):
         self.matches = []
         self.rules = rules
+        self.es_client = None
         self.occurrences = {}
         self.rules['owner'] = self.rules.get('owner', '')
         self.rules['priority'] = self.rules.get('priority', '2')
@@ -88,6 +91,10 @@ class RuleType(object):
         """ Gets called when a rule has use_terms_query set to True.
         :param terms: A list of buckets with a key, corresponding to query_key, and the count """
         raise NotImplementedError()
+
+    def set_elasticsearch_client(self, client):
+        self.es_client = client
+
 
 
 class CompareRule(RuleType):
@@ -936,6 +943,84 @@ class MetricAggregationRule(BaseAggregationRule):
         if 'min_threshold' in self.rules and metric_value < self.rules['min_threshold']:
             return True
         return False
+
+
+class MetricHistoryAggregationRule(MetricAggregationRule):
+    """ A rule that matches when there is a low number of events given a timeframe. """
+    required_options = frozenset(['metric_agg_key', 'metric_agg_type', 'date_diff_ref'])
+    allowed_aggregations = frozenset(['min', 'max', 'avg', 'sum', 'cardinality', 'value_count'])
+
+    def __init__(self, *args):
+        super(MetricHistoryAggregationRule, self).__init__(*args)
+
+    def check_matches(self, timestamp, query_key, aggregation_data):
+        current_val = aggregation_data[self.metric_key]['value']
+
+        ref_start = dt_to_ts(self.rules["starttime"] - datetime.timedelta(minutes=self.rules['date_diff_ref']))
+        ref_end = dt_to_ts(timestamp - datetime.timedelta(minutes=self.rules['date_diff_ref']))
+        try:
+            query = {
+                "query": {"range": {"@timestamp": {
+                    "gte": ref_start,
+                    "lt": ref_end
+                }}},
+                "aggs": self.rules['aggregation_query_element']
+            }
+            res = self.es_client.search(index=self.rules["index"], size=1, body=query, _source_include=[self.rules["timestamp_field"]], ignore_unavailable=True)
+            aggregation_key = self.rules['metric_agg_key'] + '_' + self.rules['metric_agg_type']
+            reference_value = res['aggregations'][aggregation_key]['value']
+        except Exception as e:
+            raise e
+
+        elastalert_logger.debug(str(timestamp) + " current " + str(current_val) + " reference " + str(reference_value))
+        if self.find_matches(reference_value, current_val):
+            self.add_match({
+                "ref_value": reference_value,
+                "cur_value": current_val,
+                "cur_start": self.rules["starttime"],
+                "cur_end": timestamp,
+                "ref_start": ref_start,
+                "ref_end": ref_end
+            })
+
+    def find_matches(self, ref, cur):
+        """ Determines if an event spike or dip happening. """
+
+        # Apply threshold limits
+        if cur < self.rules.get('threshold_total', 0) and ref < self.rules.get('threshold_total', 0):
+            return False
+        if cur < self.rules.get('threshold_cur', 0) or ref < self.rules.get('threshold_ref', 0):
+            return False
+
+        spike_up, spike_down = False, False
+        if cur <= ref / self.rules['spike_height']:
+            spike_down = True
+        if cur >= ref * self.rules['spike_height']:
+            spike_up = True
+
+        if (self.rules['spike_type'] in ['both', 'up'] and spike_up) or \
+                (self.rules['spike_type'] in ['both', 'down'] and spike_down):
+            return True
+        return False
+
+    def get_match_str(self, match):
+        cur = match['cur_value']
+        ref = match['ref_value']
+        spike_up = False
+        ratio = cur / ref / self.rules['spike_height']
+        if cur <= ref / self.rules['spike_height']:
+            ratio = 100 - (cur / ref * 100)
+        if cur >= ref * self.rules['spike_height']:
+            spike_up = True
+            ratio = (cur / ref * 100) - 100
+        print str(match)
+        if 'alert_display_timezone' in self.rules:
+            ts = pretty_ts(match['cur_end'], True, timezone(self.rules['alert_display_timezone']))
+        else:
+            ts = pretty_ts(match['cur_end'], True)
+
+        return '"%s" goes %s%% %s at %s. Reference value %s, current value %s' % \
+               (self.rules['name'], round(ratio, 2), 'up' if spike_up else 'down', ts, round(ref, 3), round(cur, 3))
 
 
 class PercentageMatchRule(BaseAggregationRule):
