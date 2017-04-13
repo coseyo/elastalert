@@ -1013,14 +1013,16 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
         if cur >= ref * self.rules['spike_height']:
             spike_up = True
             ratio = (cur / ref * 100) - 100
-        print str(match)
-        if 'alert_display_timezone' in self.rules:
-            ts = pretty_ts(match['cur_end'], True, timezone(self.rules['alert_display_timezone']))
-        else:
-            ts = pretty_ts(match['cur_end'], True)
 
-        return '"%s" goes %s%% %s at %s. Reference value %s, current value %s' % \
-               (self.rules['name'], round(ratio, 2), 'up' if spike_up else 'down', ts, round(ref, 3), round(cur, 3))
+        if 'alert_display_timezone' in self.rules:
+            ts = pretty_ts(match['cur_start'], True, timezone(self.rules['alert_display_timezone']))
+            ts_end = pretty_ts(match['cur_end'], True, timezone(self.rules['alert_display_timezone']))
+        else:
+            ts = pretty_ts(match['cur_start'], True)
+            ts_end = pretty_ts(match['cur_end'], True)
+
+        return '"%s" goes %s%% %s between %s and %s. Reference value %s, current value %s' % \
+               (self.rules['name'], round(ratio, 2), 'up' if spike_up else 'down', ts, ts_end, round(ref, 3), round(cur, 3))
 
 
 class PercentageMatchRule(BaseAggregationRule):
