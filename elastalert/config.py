@@ -42,6 +42,7 @@ rules_mapping = {
     'new_term': ruletypes.NewTermsRule,
     'cardinality': ruletypes.CardinalityRule,
     'metric_aggregation': ruletypes.MetricAggregationRule,
+    'metric_comparison': ruletypes.MetricComparisonRule,
     'metric_history_aggregation': ruletypes.MetricHistoryAggregationRule,
     'percentage_match': ruletypes.PercentageMatchRule,
 }

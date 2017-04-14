@@ -8,6 +8,7 @@ from auth import Auth
 from elasticsearch import RequestsHttpConnection
 from elasticsearch.client import Elasticsearch
 from six import string_types
+from pytz import timezone
 
 logging.basicConfig()
 elastalert_logger = logging.getLogger('elastalert')
@@ -157,7 +158,7 @@ def inc_ts(timestamp, milliseconds=1):
     return dt_to_ts(dt)
 
 
-def pretty_ts(timestamp, tz=True, tzinfo=None):
+def pretty_ts(timestamp, tz=True, zone=None):
     """Pretty-format the given timestamp (to be printed or logged hereafter).
     If tz, the timestamp will be converted to local time.
     Format: YYYY-MM-DD HH:MM TZ"""
@@ -165,8 +166,8 @@ def pretty_ts(timestamp, tz=True, tzinfo=None):
     if not isinstance(timestamp, datetime.datetime):
         dt = ts_to_dt(timestamp)
     if tz:
-        if tzinfo is not None:
-            dt = dt.astimezone(tzinfo)
+        if zone is not None:
+            dt = dt.astimezone(timezone(zone))
         else:
             dt = dt.astimezone(dateutil.tz.tzlocal())
     return dt.strftime('%Y-%m-%d %H:%M %Z')

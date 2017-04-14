@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 import copy
-
 import datetime
+
 from blist import sortedlist
 
-from pytz import timezone
 from util import EAException
 from util import add_raw_postfix
 from util import dt_to_ts
@@ -945,8 +944,78 @@ class MetricAggregationRule(BaseAggregationRule):
         return False
 
 
+class MetricComparisonRule(MetricAggregationRule):
+    required_options = frozenset(['metric_agg_key', 'metric_agg_type'])
+    allowed_aggregations = frozenset(['min', 'max', 'avg', 'sum', 'cardinality', 'value_count'])
+
+    def __init__(self, *args):
+        super(MetricComparisonRule, self).__init__(*args)
+
+    def check_matches(self, time_end, query_key, aggregation_data):
+        cur_val = aggregation_data[self.metric_key]['value']
+
+        ref_start = dt_to_ts(self.rules["starttime"])
+        ref_end = dt_to_ts(time_end)
+
+        try:
+            query = {
+                "query": {"range": {"@timestamp": {"gte": ref_start, "lt": ref_end}}},
+                "aggs": {self.metric_key: {self.rules['ref_metric_agg_type']: {'field': self.rules['ref_metric_agg_key']}}}
+            }
+            res = self.es_client.search(index=self.rules.get('ref_index', self.rules['index']), size=1, body=query, _source_include=[self.rules["timestamp_field"]], ignore_unavailable=True)
+            aggregation_key = self.rules['metric_agg_key'] + '_' + self.rules['metric_agg_type']
+            ref_value = res['aggregations'][aggregation_key]['value']
+        except Exception as e:
+            raise e
+
+        elastalert_logger.info(str(time_end) + " current " + str(cur_val) + " reference " + str(ref_value))
+        if self.find_matches(ref_value, cur_val):
+            self.add_match({
+                "ref_value": ref_value,
+                "cur_value": cur_val,
+                "cur_start": self.rules["starttime"],
+                "cur_end": time_end
+            })
+
+    def find_matches(self, ref, cur):
+        """ Determines if an event spike or dip happening. """
+
+        # Apply threshold limits
+        if cur < self.rules.get('threshold_total', 0) and ref < self.rules.get('threshold_total', 0):
+            return False
+        if cur < self.rules.get('threshold_cur', 0) or ref < self.rules.get('threshold_ref', 0):
+            return False
+
+        spike_up, spike_down = False, False
+        if cur <= ref / self.rules['spike_height']:
+            spike_down = True
+        if cur >= ref * self.rules['spike_height']:
+            spike_up = True
+
+        if (self.rules['spike_type'] in ['both', 'up'] and spike_up) or \
+                (self.rules['spike_type'] in ['both', 'down'] and spike_down):
+            return True
+        return False
+
+    def get_match_str(self, match):
+        cur = match['cur_value']
+        ref = match['ref_value']
+        spike_up = False
+        ratio = cur / ref / self.rules['spike_height']
+        if cur <= ref / self.rules['spike_height']:
+            ratio = 100 - (cur / ref * 100)
+        if cur >= ref * self.rules['spike_height']:
+            spike_up = True
+            ratio = (cur / ref * 100) - 100
+
+        ts = pretty_ts(match['cur_start'], True, self.rules['alert_display_timezone'])
+        ts_end = pretty_ts(match['cur_end'], True, self.rules['alert_display_timezone'])
+
+        return '"%s" goes %s%% %s between %s and %s. Reference value %s, current value %s' % \
+               (self.rules['name'], round(ratio, 2), 'up' if spike_up else 'down', ts, ts_end, round(ref, 3), round(cur, 3))
+
+
 class MetricHistoryAggregationRule(MetricAggregationRule):
-    """ A rule that matches when there is a low number of events given a timeframe. """
     required_options = frozenset(['metric_agg_key', 'metric_agg_type', 'date_diff_ref'])
     allowed_aggregations = frozenset(['min', 'max', 'avg', 'sum', 'cardinality', 'value_count'])
 
@@ -972,7 +1041,7 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
         except Exception as e:
             raise e
 
-        elastalert_logger.debug(str(timestamp) + " current " + str(current_val) + " reference " + str(reference_value))
+        elastalert_logger.info(str(timestamp) + " current " + str(current_val) + " reference " + str(reference_value))
         if self.find_matches(reference_value, current_val):
             self.add_match({
                 "ref_value": reference_value,
@@ -1014,12 +1083,8 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
             spike_up = True
             ratio = (cur / ref * 100) - 100
 
-        if 'alert_display_timezone' in self.rules:
-            ts = pretty_ts(match['cur_start'], True, timezone(self.rules['alert_display_timezone']))
-            ts_end = pretty_ts(match['cur_end'], True, timezone(self.rules['alert_display_timezone']))
-        else:
-            ts = pretty_ts(match['cur_start'], True)
-            ts_end = pretty_ts(match['cur_end'], True)
+        ts = pretty_ts(match['cur_start'], True, self.rules['alert_display_timezone'])
+        ts_end = pretty_ts(match['cur_end'], True, self.rules['alert_display_timezone'])
 
         return '"%s" goes %s%% %s between %s and %s. Reference value %s, current value %s' % \
                (self.rules['name'], round(ratio, 2), 'up' if spike_up else 'down', ts, ts_end, round(ref, 3), round(cur, 3))
