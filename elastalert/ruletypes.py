@@ -431,7 +431,7 @@ class SpikeRule(RuleType):
             return False
 
         spike_up, spike_down = False, False
-        if cur <= ref / self.rules['spike_height']:
+        if cur <= ref * (2 - self.rules['spike_height']):
             spike_down = True
         if cur >= ref * self.rules['spike_height']:
             spike_up = True
@@ -987,7 +987,7 @@ class MetricComparisonRule(MetricAggregationRule):
             return False
 
         spike_up, spike_down = False, False
-        if cur <= ref / self.rules['spike_height']:
+        if cur <= ref * (2 - self.rules['spike_height']):
             spike_down = True
         if cur >= ref * self.rules['spike_height']:
             spike_up = True
@@ -1002,7 +1002,7 @@ class MetricComparisonRule(MetricAggregationRule):
         ref = match['ref_value']
         spike_up = False
         ratio = cur / ref / self.rules['spike_height']
-        if cur <= ref / self.rules['spike_height']:
+        if cur <= ref * (2 - self.rules['spike_height']):
             ratio = 100 - (cur / ref * 100)
         if cur >= ref * self.rules['spike_height']:
             spike_up = True
@@ -1062,7 +1062,7 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
             return False
 
         spike_up, spike_down = False, False
-        if cur <= ref / self.rules['spike_height']:
+        if cur <= ref * (2 - self.rules['spike_height']):
             spike_down = True
         if cur >= ref * self.rules['spike_height']:
             spike_up = True
@@ -1077,7 +1077,7 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
         ref = match['ref_value']
         spike_up = False
         ratio = cur / ref / self.rules['spike_height']
-        if cur <= ref / self.rules['spike_height']:
+        if cur <= ref * (2 - self.rules['spike_height']):
             ratio = 100 - (cur / ref * 100)
         if cur >= ref * self.rules['spike_height']:
             spike_up = True
