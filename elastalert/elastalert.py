@@ -666,8 +666,23 @@ class ElastAlerter():
 
         while endtime - rule['starttime'] > segment_size:
             tmp_endtime = tmp_endtime + segment_size
-            if not self.run_query(rule, rule['starttime'], tmp_endtime):
-                return 0
+
+            work_from_hours = rule.get('work_from_hours', 0)
+            work_to_hours = rule.get('work_to_hours', 24)
+            now = rule['starttime']
+
+            if work_from_hours > work_to_hours:
+                if now.hour >= work_from_hours:
+                    work_to_hours = 24
+                elif now.hour < work_to_hours:
+                    work_from_hours = -1
+
+            if work_from_hours <= now.hour < work_to_hours:
+                if not self.run_query(rule, rule['starttime'], tmp_endtime):
+                    return 0
+            else:
+                logging.info(str(now) + ' Out of working hours.')
+
             rule['starttime'] = tmp_endtime
             rule['type'].garbage_collect(tmp_endtime)
 
