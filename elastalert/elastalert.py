@@ -763,7 +763,7 @@ class ElastAlerter():
         if work_from_hours <= now.hour < work_to_hours:
             return True
         else:
-            logging.warn(str(now) + ' Out of working hours.')
+            logging.warn('Rule  "%s" is out of working hours range (%s-%s). %s' % (rule['name'], work_from_hours, work_to_hours, str(now)))
             return False
 
     def init_rule(self, new_rule, new=True):
