@@ -663,7 +663,6 @@ class ElastAlerter():
         segment_size = self.get_segment_size(rule)
 
         tmp_endtime = rule['starttime']
-
         while endtime - rule['starttime'] > segment_size:
             tmp_endtime = tmp_endtime + segment_size
 
@@ -764,7 +763,7 @@ class ElastAlerter():
         if work_from_hours <= now.hour < work_to_hours:
             return True
         else:
-            logging.info(str(now) + ' Out of working hours.')
+            logging.warn(str(now) + ' Out of working hours.')
             return False
 
     def init_rule(self, new_rule, new=True):
