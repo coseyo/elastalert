@@ -671,21 +671,15 @@ class ElastAlerter():
             work_to_hours = rule.get('work_to_hours', 24)
             now = rule['starttime']
 
-            if work_from_hours > work_to_hours:
-                if now.hour >= work_from_hours:
-                    work_to_hours = 24
-                elif now.hour < work_to_hours:
-                    work_from_hours = -1
-
-            if work_from_hours <= now.hour < work_to_hours:
+            if self.validate_rule_hours(rule):
                 if not self.run_query(rule, rule['starttime'], tmp_endtime):
                     return 0
-            else:
-                logging.info(str(now) + ' Out of working hours.')
 
             rule['starttime'] = tmp_endtime
             rule['type'].garbage_collect(tmp_endtime)
 
+        if not self.validate_rule_hours(rule):
+            return 0
         if rule.get('aggregation_query_element'):
             if endtime - tmp_endtime == segment_size:
                 self.run_query(rule, tmp_endtime, endtime)
@@ -755,6 +749,23 @@ class ElastAlerter():
         self.writeback('elastalert_status', body)
 
         return num_matches
+
+    def validate_rule_hours(self, rule):
+        work_from_hours = rule.get('work_from_hours', 0)
+        work_to_hours = rule.get('work_to_hours', 24)
+        now = rule['starttime']
+
+        if work_from_hours > work_to_hours:
+            if now.hour >= work_from_hours:
+                work_to_hours = 24
+            elif now.hour < work_to_hours:
+                work_from_hours = -1
+
+        if work_from_hours <= now.hour < work_to_hours:
+            return True
+        else:
+            logging.info(str(now) + ' Out of working hours.')
+            return False
 
     def init_rule(self, new_rule, new=True):
         ''' Copies some necessary non-config state from an exiting rule to a new rule. '''
