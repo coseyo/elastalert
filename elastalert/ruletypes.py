@@ -959,7 +959,7 @@ class MetricComparisonRule(MetricAggregationRule):
 
         try:
             query = {
-                "query": {"range": {"@timestamp": {"gte": ref_start, "lt": ref_end}}},
+                "query": {"range": {self.rules["timestamp_field"]: {"gte": ref_start, "lt": ref_end}}},
                 "aggs": {self.metric_key: {self.rules['ref_metric_agg_type']: {'field': self.rules['ref_metric_agg_key']}}}
             }
             res = self.es_client.search(index=self.rules.get('ref_index', self.rules['index']), size=1, body=query, _source_include=[self.rules["timestamp_field"]], ignore_unavailable=True)
@@ -1029,7 +1029,7 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
         ref_end = dt_to_ts(timestamp - datetime.timedelta(minutes=self.rules['date_diff_ref']))
         try:
             query = {
-                "query": {"range": {"@timestamp": {
+                "query": {"range": {self.rules["timestamp_field"]: {
                     "gte": ref_start,
                     "lt": ref_end
                 }}},
