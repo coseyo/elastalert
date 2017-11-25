@@ -459,10 +459,13 @@ class ElastAlerter():
         :param end: The latest time to query.
         Returns True on success and False on failure.
         """
+
         if start is None:
             start = self.get_index_start(rule['index'])
         if end is None:
             end = ts_now()
+
+        elastalert_logger.info("run_query %s start %s, end %s" % (rule['name'], start, end))
 
         # Reset hit counter and query
         rule_inst = rule['type']

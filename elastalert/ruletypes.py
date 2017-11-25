@@ -1027,6 +1027,9 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
 
         ref_start = dt_to_ts(self.rules["starttime"] - datetime.timedelta(minutes=self.rules['date_diff_ref']))
         ref_end = dt_to_ts(timestamp - datetime.timedelta(minutes=self.rules['date_diff_ref']))
+
+        elastalert_logger.info("check_matches ref_start %s ref_end %s" % (ref_start, ref_end))
+
         try:
             query = {
                 "query": {"range": {self.rules["timestamp_field"]: {
@@ -1054,6 +1057,8 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
 
     def find_matches(self, ref, cur):
         """ Determines if an event spike or dip happening. """
+
+        elastalert_logger.info("find_matches ref %s cur %s" % (ref, cur))
 
         # Apply threshold limits
         if cur < self.rules.get('threshold_total', 0) and ref < self.rules.get('threshold_total', 0):
