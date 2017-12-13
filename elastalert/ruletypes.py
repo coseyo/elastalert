@@ -876,6 +876,7 @@ class BaseAggregationRule(RuleType):
         raise NotImplementedError()
 
     def add_aggregation_data(self, payload):
+        elastalert_logger.info("add_aggregation_data")
         for timestamp, payload_data in payload.iteritems():
             if 'interval_aggs' in payload_data:
                 self.unwrap_interval_buckets(timestamp, None, payload_data['interval_aggs']['buckets'])
@@ -885,11 +886,13 @@ class BaseAggregationRule(RuleType):
                 self.check_matches(timestamp, None, payload_data)
 
     def unwrap_interval_buckets(self, timestamp, query_key, interval_buckets):
+        elastalert_logger.info("unwrap_interval_buckets")
         for interval_data in interval_buckets:
             # Use bucket key here instead of start_time for more accurate match timestamp
             self.check_matches(ts_to_dt(interval_data['key_as_string']), query_key, interval_data)
 
     def unwrap_term_buckets(self, timestamp, term_buckets):
+        elastalert_logger.info("unwrap_term_buckets")
         for term_data in term_buckets:
             if 'interval_aggs' in term_data:
                 self.unwrap_interval_buckets(timestamp, term_data['key'], term_data['interval_aggs']['buckets'])
@@ -1020,6 +1023,7 @@ class MetricHistoryAggregationRule(MetricAggregationRule):
     allowed_aggregations = frozenset(['min', 'max', 'avg', 'sum', 'cardinality', 'value_count'])
 
     def __init__(self, *args):
+        elastalert_logger.info("MetricHistoryAggregationRule %s" % ("x"))
         super(MetricHistoryAggregationRule, self).__init__(*args)
 
     def check_matches(self, timestamp, query_key, aggregation_data):

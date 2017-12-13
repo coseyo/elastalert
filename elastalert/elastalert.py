@@ -465,7 +465,7 @@ class ElastAlerter():
         if end is None:
             end = ts_now()
 
-        elastalert_logger.info("run_query %s start %s, end %s" % (rule['name'], start, end))
+        elastalert_logger.info("run_query %s type %s start %s, end %s" % (rule['name'], rule['type'], start, end))
 
         # Reset hit counter and query
         rule_inst = rule['type']
@@ -481,6 +481,8 @@ class ElastAlerter():
             if data:
                 data = self.remove_duplicate_events(data, rule)
 
+        elastalert_logger.info("run_query 22")
+
         # There was an exception while querying
         if data is None:
             return False
@@ -492,6 +494,7 @@ class ElastAlerter():
             elif rule.get('aggregation_query_element'):
                 rule_inst.add_aggregation_data(data)
             else:
+                elastalert_logger.info("run_query add_data")
                 rule_inst.add_data(data)
 
         try:
